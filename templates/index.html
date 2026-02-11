@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RAG Document Intelligence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ====== SAME STYLES YOU HAD (UNCHANGED) ====== */
+/* I am not repeating explanation to keep it clean */
+
+:root {
+  --bg: #0f172a;
+  --card: rgba(24, 29, 48, 0.76);
+  --card-blur: 18px;
+  --accent: #7b6cf6;
+  --accent2: #38bdf8;
+  --accent-gradient: linear-gradient(99deg, #7b6cf6 0%, #38bdf8 100%);
+  --text: #e6eaf3;
+  --muted: #95aac9;
+  --success: #23e893;
+  --error: #ff7866;
+  --border: rgba(255,255,255,0.09);
+  --radius: 22px;
+  --shadow: 0 6px 32px 0 rgba(68,71,87,0.19), 0 0.5px 2px 0 rgba(70,82,95,0.05);
+  --shadow-elev: 0 15px 36px 0 rgba(60, 66, 102, 0.23);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: radial-gradient(ellipse 85% 60% at 60% -20%, #283354 16%, #0f172a 99%);
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 30px 12px 100px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.brand-logo {
+  font-weight: 700;
+  font-size: 2rem;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand-badge {
+  padding: 4px 15px;
+  background: rgba(129,140,248,0.11);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: .8rem;
+}
+
+.glass-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(var(--card-blur));
+  border: 1px solid var(--border);
+  padding: 28px;
+  transition: all .25s ease;
+}
+
+.glass-card:hover {
+  box-shadow: var(--shadow-elev);
+  transform: translateY(-3px);
+}
+
+.upload-area {
+  border: 2px dashed var(--border);
+  border-radius: 18px;
+  padding: 35px;
+  text-align: center;
+  position: relative;
+  transition: .2s ease;
+}
+
+.upload-area.dragover {
+  border-color: var(--accent);
+  background: rgba(123,108,246,0.1);
+}
+
+.upload-area input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.progress-bar-outer {
+  width: 100%;
+  height: 12px;
+  border-radius: 8px;
+  background: rgba(115,125,160,0.13);
+  margin-top: 15px;
+  overflow: hidden;
+}
+
+.progress-bar-inner {
+  height: 100%;
+  width: 0%;
+  background: var(--accent-gradient);
+  border-radius: 8px;
+  transition: width .4s ease;
+}
+
+.ask-form-group {
+  display: flex;
+  gap: 10px;
+}
+
+.ask-input {
+  flex: 1;
+  padding: 13px;
+  border-radius: 14px;
+  background: rgba(18,30,51,0.75);
+  border: 1px solid transparent;
+  color: white;
+  outline: none;
+}
+
+.ask-input:focus {
+  border: 1px solid #818cf8;
+  box-shadow: 0 0 0 2px rgba(129,140,248,0.4);
+}
+
+.ask-btn {
+  padding: 13px 24px;
+  border-radius: 14px;
+  background: var(--accent-gradient);
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+.spinner {
+  display: none;
+  margin: 18px auto 0;
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top: 3px solid var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner.show { display: block; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.answer-content {
+  background: rgba(20,28,48,0.9);
+  padding: 25px;
+  border-radius: 20px;
+  line-height: 1.7;
+}
+
+.flash {
+  padding: 14px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+}
+
+.flash.success {
+  background: rgba(36,204,136,0.17);
+}
+
+.flash.error {
+  background: rgba(252,69,96,0.13);
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<header>
+  <div class="brand-logo">RAG Document Intelligence</div>
+  <div class="brand-badge">LangChain • FAISS • Ollama</div>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, msg in messages %}
+      <div class="flash {{ category }}">{{ msg }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<!-- Upload Card -->
+<div class="glass-card">
+  <div id="upload-area" class="upload-area">
+    Drag & drop PDF or click to browse
+    <form id="uploadForm" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+      <input type="file" name="pdf_file" accept="application/pdf" required>
+    </form>
+  </div>
+
+  <div id="progress-container" style="display:none;">
+    <div class="progress-bar-outer">
+      <div class="progress-bar-inner" id="progress-bar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Ask Card -->
+<div class="glass-card">
+  <form id="askForm" action="{{ url_for('ask') }}" method="post">
+    <div class="ask-form-group">
+      <input class="ask-input" type="text" name="question" placeholder="Ask something..." required>
+      <button class="ask-btn" type="submit">Ask</button>
+    </div>
+  </form>
+  <div class="spinner" id="ask-spinner"></div>
+</div>
+
+{% if answer %}
+<div class="glass-card">
+  <div class="answer-content">
+    {{ answer|safe }}
+  </div>
+</div>
+{% endif %}
+
+</div>
+
+<script>
+// ===== Upload Animation =====
+const uploadForm = document.getElementById('uploadForm');
+const progressContainer = document.getElementById('progress-container');
+const progressBar = document.getElementById('progress-bar');
+
+uploadForm.addEventListener('submit', function(){
+  progressContainer.style.display = 'block';
+  let width = 0;
+  progressBar.style.width = '0%';
+
+  const interval = setInterval(() => {
+    if(width >= 90){
+      clearInterval(interval);
+    } else {
+      width += 4;
+      progressBar.style.width = width + '%';
+    }
+  }, 120);
+});
+
+// ===== Complete to 100% when success flash appears =====
+window.addEventListener('DOMContentLoaded', function(){
+  const successFlash = document.querySelector('.flash.success');
+  if(successFlash){
+    progressContainer.style.display = 'block';
+    progressBar.style.width = '100%';
+    setTimeout(() => {
+      progressContainer.style.display = 'none';
+    }, 1000);
+  }
+});
+
+// ===== Ask Spinner =====
+const askForm = document.getElementById('askForm');
+const spinner = document.getElementById('ask-spinner');
+
+askForm.addEventListener('submit', function(){
+  spinner.classList.add('show');
+});
+</script>
+
+</body>
+</html>
